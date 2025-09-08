@@ -1,15 +1,111 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
+  // output omitted - default is fine
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+enum Role {
+  JOB_SEEKER
+  JOB_GIVER
+}
+
+enum Status {
+  PENDING
+  MATCHED
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobSeekerProfile JobSeekerProfile?
+  jobGiverProfile  JobGiverProfile?
+
+  outgoingLikes Like[]    @relation("liker")
+  incomingLikes Like[]    @relation("liked")
+
+  seekerChatRooms  ChatRoom[] @relation("seeker")
+  giverChatRooms   ChatRoom[] @relation("giver")
+
+  messages Message[]
+}
+
+model JobSeekerProfile {
+  id              Int     @id @default(autoincrement())
+  userId          Int     @unique
+  skills          String[]
+  experienceYears Int
+  portfolioUrl    String?
+  hourlyRate      Float?
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model JobGiverProfile {
+  id      Int    @id @default(autoincrement())
+  userId  Int    @unique
+  company String
+  bio     String?
+
+  user  User  @relation(fields: [userId], references: [id])
+  jobs  Job[]
+}
+
+model Job {
+  id          Int      @id @default(autoincrement())
+  jobGiverId  Int
+  title       String
+  description String
+  skills      String[]
+  budget      Float
+  createdAt   DateTime @default(now())
+
+  jobGiver JobGiverProfile @relation(fields: [jobGiverId], references: [id])
+}
+
+model Like {
+  id        Int      @id @default(autoincrement())
+  likerId   Int
+  likedId   Int
+  status    Status   @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  liker User @relation("liker", fields: [likerId], references: [id])
+  liked User @relation("liked", fields: [likedId], references: [id])
+
+  @@unique([likerId, likedId])
+}
+
+model ChatRoom {
+  id         Int      @id @default(autoincrement())
+  seekerId   Int
+  giverId    Int
+  createdAt  DateTime @default(now())
+
+  seeker User @relation("seeker", fields: [seekerId], references: [id])
+  giver  User @relation("giver", fields: [giverId], references: [id])
+
+  messages Message[]
+
+  @@unique([seekerId, giverId])
+}
+
+model Message {
+  id         Int      @id @default(autoincrement())
+  chatRoomId Int
+  senderId   Int
+  content    String
+  createdAt  DateTime @default(now())
+
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id])
+  sender   User     @relation(fields: [senderId], references: [id])
 }
